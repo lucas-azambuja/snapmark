@@ -1,45 +1,64 @@
-<p align="center"><img src="assets/AppIcon-1024.png" width="128" alt="Snapmark icon"></p>
+<p align="center">
+  <img src="assets/icon-readme.png" width="160" alt="Snapmark icon">
+</p>
 
-# Snapmark
+<h1 align="center">Snapmark</h1>
 
-Screenshot annotation for macOS. Press **⌘⇧5**, select an area, and point out what matters with arrows, shapes, text, or blur. Then copy or save it.
+<p align="center">
+  <b>Capture. Mark. Share.</b><br>
+  A tiny, native screenshot annotator for macOS.
+</p>
 
-It's a small native app with no dependencies, written in Swift with AppKit. It lives in the menu bar and stays out of the Dock.
+<p align="center">
+  <a href="https://github.com/lucas-azambuja/snapmark/releases"><img alt="Release" src="https://img.shields.io/github/v/release/lucas-azambuja/snapmark?include_prereleases&label=release&color=FA068E"></a>
+  <img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111111?logo=apple">
+  <img alt="Apple silicon and Intel" src="https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-111111">
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/lucas-azambuja/snapmark?color=555555"></a>
+</p>
 
-> **Status: alpha.** It works for daily use but still has rough edges. Bug reports are welcome.
+<p align="center">
+  <a href="https://github.com/lucas-azambuja/snapmark/releases"><b>Download the latest release →</b></a>
+</p>
+
+---
+
+Press **⌘⇧5**, drag over what you want, point it out with arrows, shapes, text or blur, and copy it. Snapmark is a single native app with no dependencies: it lives in the menu bar, stays out of the Dock, and gets out of your way.
+
+> **Status: alpha.** It works for daily use but still has rough edges. [Bug reports](https://github.com/lucas-azambuja/snapmark/issues) are welcome.
 
 ## Features
 
-- **Area capture** with ⌘⇧5. The screen dims and the area you drag stays clear, with its size shown next to it. Esc cancels; the space bar switches to window capture.
-- **Crosshair and loupe** while selecting: guide lines follow the cursor, and a magnifier shows the pixels under it with their coordinates and hex color (macOS 14 or later).
-- Short animations: the dimming fades in, the captured area flashes, and the editor grows out of it.
-- **Floating thumbnail** after you copy or save: it slides into the bottom-left corner for a few seconds. Drag it into any app to drop the image there, or click it to reopen the image in the editor. Hovering keeps it on screen.
-- **Annotation editor** on a translucent dark window:
+### Capture
+- **⌘⇧5** dims the screen; the area you drag stays clear, with its size shown next to it.
+- A **crosshair and loupe** show the pixels under the cursor, with coordinates and hex color (macOS 14+).
+- **Space** switches to window capture. **Esc** cancels.
+- Keeps the full Retina resolution.
 
-  | Tool | Key |
-  |---|---|
-  | Select | `V` |
-  | Arrow | `A` |
-  | Line | `L` |
-  | Rectangle | `R` |
-  | Ellipse | `O` |
-  | Pen (freehand) | `P` |
-  | Highlighter | `H` |
-  | Blur (pixelate + blur) | `B` |
-  | Text | `T` |
-  | Counter (1, 2, 3…) | `N` |
+### Annotate
 
-- **Every annotation stays editable.** Click it with the Select tool to move it, drag its handles to resize it, or pick another color or stroke to change it. Double-click text to edit it. Delete (⌫ or the trash button) removes it, and the arrow keys nudge it (Shift for 10 pt).
-- A new annotation is selected right after you draw it, so you can adjust it straight away.
-- 8 preset colors plus a custom color picker, and 4 stroke widths shown as stroke previews.
-- **Shift** keeps lines and arrows at 45° angles and makes rectangles and ellipses square.
-- **⌘Z** undoes and **⇧⌘Z** redoes any change, including moves and edits.
-- **⌘C** (or Return) copies to the clipboard and closes the editor. **⌘S** saves as PNG or JPEG.
-- **Esc** clears the selection, or closes the editor (asking first if there are unsaved annotations).
-- Keeps the Retina resolution of the capture.
-- Opens existing images in the editor (menu → *Open Image in Editor…*).
-- *About Snapmark* and the version/build number in the menu.
-- Optional launch at login.
+| Tool | Key | | Tool | Key |
+|---|---|---|---|---|
+| Select | `V` | | Pen | `P` |
+| Arrow | `A` | | Highlighter | `H` |
+| Line | `L` | | Blur | `B` |
+| Rectangle | `R` | | Text | `T` |
+| Ellipse | `O` | | Counter (1, 2, 3…) | `N` |
+
+- **Everything stays editable.** Select an annotation to move it, drag its handles to resize it, or pick another color or stroke. Double-click text to edit it. **⌫** deletes, arrow keys nudge (Shift for 10 pt).
+- New annotations are selected as soon as you draw them, so you can tweak them right away.
+- 8 colors plus a custom picker, and 4 stroke widths shown as live previews.
+- **Shift** snaps lines to 45° and makes rectangles and ellipses square.
+- **⌘Z / ⇧⌘Z** undo and redo every change.
+
+### Share
+- **Return** or **⌘C** copies to the clipboard and closes the editor. **⌘S** saves as PNG or JPEG.
+- A **floating thumbnail** slides in afterwards: drag it into any app, or click it to reopen the image.
+- **Open Image in Editor…** annotates any image you already have.
+
+### And also
+- A guided screen for the Screen Recording permission.
+- A translucent dark editor with short, snappy animations.
+- *About Snapmark*, version and build number in the menu, and optional launch at login.
 
 ## Requirements
 
