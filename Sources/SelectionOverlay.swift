@@ -119,7 +119,21 @@ final class OverlayWindow: NSWindow {
 final class OverlayView: NSView {
     weak var controller: SelectionController?
     let screenFrame: NSRect
-    var snapshot: CGImage? { didSet { needsDisplay = true } }
+    var snapshot: CGImage? {
+        didSet {
+            needsDisplay = true
+            guard let img = snapshot else { return }
+            let w = screenFrame.width
+            DispatchQueue.global(qos: .userInitiated).async {
+                let map = EdgeMap(image: img, pointWidth: w)
+                DispatchQueue.main.async { self.edgeMap = map }
+            }
+        }
+    }
+    /// Edges of what's on this screen, for snapping the selection.
+    private(set) var edgeMap: EdgeMap?
+    /// Where each hint sits in the instruction bar (local coordinates), so the Snap one can be clicked.
+    private var hintRects: [(key: String, rect: NSRect)] = []
     private let flashLayer = CALayer()
     private var area: NSTrackingArea?
 
@@ -215,7 +229,8 @@ final class OverlayView: NSView {
                 drawLabel("Full screen  ·  \(Int(r.width)) × \(Int(r.height))", centeredIn: r)
             }
         }
-        if localCursor != nil, !controller.dragging { drawHints(controller.hints) }
+        drawGuides(controller.snapGuides)
+        if localCursor != nil, !controller.dragging { drawHints(controller.hints) } else { hintRects = [] }
     }
 
     /// Before the mouse moves, the cursor may be on another screen than the highlighted window.
@@ -320,6 +335,28 @@ final class OverlayView: NSView {
     }
 
     /// Instruction bar at the bottom of the screen: key caps followed by what they do.
+    /// Accent lines across the screen along the edges the selection snapped to.
+    private func drawGuides(_ guides: [SnapGuide]) {
+        guard !guides.isEmpty else { return }
+        let p = NSBezierPath()
+        for g in guides {
+            switch g {
+            case .vertical(let x):
+                let lx = x - screenFrame.minX
+                guard lx >= 0, lx <= bounds.width else { continue }
+                p.move(to: NSPoint(x: lx, y: 0)); p.line(to: NSPoint(x: lx, y: bounds.height))
+            case .horizontal(let y):
+                let ly = y - screenFrame.minY
+                guard ly >= 0, ly <= bounds.height else { continue }
+                p.move(to: NSPoint(x: 0, y: ly)); p.line(to: NSPoint(x: bounds.width, y: ly))
+            }
+        }
+        p.lineWidth = 1
+        p.setLineDash([3, 3], count: 2, phase: 0)
+        Theme.accent.withAlphaComponent(0.85).setStroke()
+        p.stroke()
+    }
+
     private func drawHints(_ hints: [(String, String)]) {
         let keyFont = NSFont.systemFont(ofSize: 11, weight: .semibold)
         let textFont = NSFont.systemFont(ofSize: 12, weight: .medium)
@@ -328,7 +365,8 @@ final class OverlayView: NSView {
         var total: CGFloat = 0
         for (key, label) in hints {
             let k = NSAttributedString(string: key, attributes: [.font: keyFont, .foregroundColor: NSColor.white])
-            let l = NSAttributedString(string: label, attributes: [.font: textFont, .foregroundColor: Theme.white(0.78)])
+            let on = label == "Snap on"
+            let l = NSAttributedString(string: label, attributes: [.font: textFont, .foregroundColor: on ? Theme.accent : Theme.white(0.78)])
             let w = max(capH, ceil(k.size().width) + capPad * 2) + 7 + ceil(l.size().width)
             items.append((k, l, w))
             total += w
@@ -343,7 +381,9 @@ final class OverlayView: NSView {
         barPath.stroke()
 
         var x = bar.minX + 16
-        for (k, l, _) in items {
+        hintRects = []
+        for (i, (k, l, w)) in items.enumerated() {
+            hintRects.append((hints[i].0, NSRect(x: x - 6, y: bar.minY, width: w + 12, height: bar.height)))
             let ks = k.size()
             let cap = NSRect(x: x, y: bar.midY - capH / 2, width: max(capH, ceil(ks.width) + capPad * 2), height: capH)
             Theme.white(0.16).setFill()
@@ -473,7 +513,11 @@ final class OverlayView: NSView {
         window?.convertPoint(toScreen: e.locationInWindow) ?? .zero
     }
     override func mouseMoved(with e: NSEvent) { controller?.mouseMoved(to: globalPoint(e)) }
-    override func mouseDown(with e: NSEvent) { controller?.mouseDown(at: globalPoint(e), screen: screenFrame, clickCount: e.clickCount) }
+    override func mouseDown(with e: NSEvent) {
+        let p = convert(e.locationInWindow, from: nil)
+        if hintRects.contains(where: { $0.key == "G" && $0.rect.contains(p) }) { controller?.toggleSnap(); return }
+        controller?.mouseDown(at: globalPoint(e), screen: screenFrame, clickCount: e.clickCount)
+    }
     override func mouseDragged(with e: NSEvent) { controller?.mouseDragged(to: globalPoint(e)) }
     override func mouseUp(with e: NSEvent) { controller?.mouseUp() }
     override func keyDown(with e: NSEvent) { controller?.keyDown(e) }
@@ -564,7 +608,10 @@ final class SelectionController {
 
     var hints: [(String, String)] {
         switch mode {
-        case .area: return [("Drag", "Select area"), ("Space", "Window"), ("⇧ Hold", "Full screen"), ("Esc", "Cancel")]
+        case .area:
+            var h = [("Drag", "Select area"), ("Space", "Window"), ("⇧ Hold", "Full screen")]
+            if CaptureOptions.snapAvailable { h.append(("G", CaptureOptions.snap ? "Snap on" : "Snap off")) }
+            return h + [("Esc", "Cancel")]
         case .window: return [("Click", "Select window"), ("Space", "Area"), ("⇧ Hold", "Full screen"), ("Esc", "Cancel")]
         case .screen: return [("Click", "Select screen"), ("Release ⇧", "Back"), ("Esc", "Cancel")]
         }
@@ -718,6 +765,64 @@ final class SelectionController {
         return Self.handlePoints(r).firstIndex { hypot($0.x - p.x, $0.y - p.y) <= 10 }
     }
 
+    // MARK: Snapping
+
+    /// Edges the selection is snapped to right now (drawn as guides while dragging).
+    private(set) var snapGuides: [SnapGuide] = []
+
+    func toggleSnap() {
+        CaptureOptions.snap.toggle()
+        snapGuides = []
+        redraw()
+    }
+
+    /// Snapping is on, and ⌥ Option isn't held to skip it.
+    private var snapping: Bool {
+        CaptureOptions.snap && CaptureOptions.snapAvailable && !NSEvent.modifierFlags.contains(.option)
+    }
+
+    private func edgeMap(for screen: NSRect) -> EdgeMap? {
+        views.first { $0.screenFrame == screen }?.edgeMap
+    }
+
+    private enum Side { case minX, maxX, minY, maxY }
+
+    /// Moves the given sides of `r` onto nearby edges on screen, and records the guides.
+    private func snapped(_ r: NSRect, sides: [Side]) -> NSRect {
+        snapGuides = []
+        guard snapping, let map = edgeMap(for: startScreen) else { return r }
+        let o = startScreen.origin
+        var minX = r.minX, maxX = r.maxX, minY = r.minY, maxY = r.maxY
+        let ys = (minY - o.y)...(maxY - o.y), xs = (minX - o.x)...(maxX - o.x)
+        for side in sides {
+            switch side {
+            case .minX: if let v = map.snapX(minX - o.x, along: ys) { minX = v + o.x; snapGuides.append(.vertical(minX)) }
+            case .maxX: if let v = map.snapX(maxX - o.x, along: ys) { maxX = v + o.x; snapGuides.append(.vertical(maxX)) }
+            case .minY: if let v = map.snapY(minY - o.y, along: xs) { minY = v + o.y; snapGuides.append(.horizontal(minY)) }
+            case .maxY: if let v = map.snapY(maxY - o.y, along: xs) { maxY = v + o.y; snapGuides.append(.horizontal(maxY)) }
+            }
+        }
+        guard maxX - minX >= 4, maxY - minY >= 4 else { snapGuides = []; return r }
+        return NSRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+    }
+
+    /// Moving keeps the size: shift by whichever edge is closest to snapping, on each axis.
+    private func snappedMove(_ r: NSRect) -> NSRect {
+        let s = snapped(r, sides: [.minX, .maxX, .minY, .maxY])
+        guard s != r else { return r }
+        let dxs = [s.minX - r.minX, s.maxX - r.maxX].filter { $0 != 0 }
+        let dys = [s.minY - r.minY, s.maxY - r.maxY].filter { $0 != 0 }
+        let dx = dxs.min { abs($0) < abs($1) } ?? 0, dy = dys.min { abs($0) < abs($1) } ?? 0
+        let moved = r.offsetBy(dx: dx, dy: dy)
+        snapGuides = snapGuides.filter {
+            switch $0 {
+            case .vertical(let x): return dx != 0 && (abs(x - moved.minX) < 0.5 || abs(x - moved.maxX) < 0.5)
+            case .horizontal(let y): return dy != 0 && (abs(y - moved.minY) < 0.5 || abs(y - moved.maxY) < 0.5)
+            }
+        }
+        return moved
+    }
+
     private func resized(_ r: NSRect, handle h: Int, to p: NSPoint) -> NSRect {
         var minX = r.minX, maxX = r.maxX, minY = r.minY, maxY = r.maxY
         if [0, 6, 7].contains(h) { minX = p.x }
@@ -726,7 +831,14 @@ final class SelectionController {
         if [4, 5, 6].contains(h) { maxY = p.y }
         let s = startScreen
         minX = max(s.minX, minX); maxX = min(s.maxX, maxX); minY = max(s.minY, minY); maxY = min(s.maxY, maxY)
-        return NSRect(x: min(minX, maxX), y: min(minY, maxY), width: abs(maxX - minX), height: abs(maxY - minY)).integral
+        let out = NSRect(x: min(minX, maxX), y: min(minY, maxY), width: abs(maxX - minX), height: abs(maxY - minY))
+        // Only the sides being dragged snap.
+        var sides: [Side] = []
+        if [0, 6, 7].contains(h) { sides.append(minX <= maxX ? .minX : .maxX) }
+        if [2, 3, 4].contains(h) { sides.append(minX <= maxX ? .maxX : .minX) }
+        if [0, 1, 2].contains(h) { sides.append(minY <= maxY ? .minY : .maxY) }
+        if [4, 5, 6].contains(h) { sides.append(minY <= maxY ? .maxY : .minY) }
+        return snapped(out, sides: sides)
     }
 
     // MARK: Events
@@ -786,7 +898,7 @@ final class SelectionController {
             var r = orig.offsetBy(dx: p.x - from.x, dy: p.y - from.y)
             r.origin.x = min(max(r.minX, s.minX), s.maxX - r.width)
             r.origin.y = min(max(r.minY, s.minY), s.maxY - r.height)
-            selection = r.integral
+            selection = snappedMove(r)
             redraw()
             return
         case .resize(let orig, let h):
@@ -801,12 +913,13 @@ final class SelectionController {
         let q = NSPoint(x: min(max(p.x, startScreen.minX), startScreen.maxX),
                         y: min(max(p.y, startScreen.minY), startScreen.maxY))
         cursor = q
-        selection = NSRect(x: min(start.x, q.x), y: min(start.y, q.y),
-                           width: abs(q.x - start.x), height: abs(q.y - start.y)).integral
+        let raw = NSRect(x: min(start.x, q.x), y: min(start.y, q.y), width: abs(q.x - start.x), height: abs(q.y - start.y))
+        selection = snapped(raw, sides: [.minX, .maxX, .minY, .maxY])
         redraw()
     }
 
     func mouseUp() {
+        snapGuides = []
         if case .none = adjust {} else {
             adjust = .none
             adjusting = false
@@ -830,6 +943,8 @@ final class SelectionController {
         switch Int(e.keyCode) {
         case kVK_Escape:
             finish(.cancelled)
+        case kVK_ANSI_G where !cmd && !e.isARepeat:
+            toggleSnap()
         case kVK_Space where !dragging && !e.isARepeat:
             setMode(mode == .window ? .area : .window)
         case kVK_Return, kVK_ANSI_KeypadEnter:
@@ -959,4 +1074,10 @@ final class MenuTarget: NSObject {
     let onPick: (String?) -> Void
     init(onPick: @escaping (String?) -> Void) { self.onPick = onPick }
     @objc func pick(_ item: NSMenuItem) { onPick(item.representedObject as? String) }
+}
+
+/// A line the selection snapped to, in global coordinates.
+enum SnapGuide {
+    case vertical(CGFloat)
+    case horizontal(CGFloat)
 }

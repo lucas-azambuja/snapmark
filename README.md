@@ -31,6 +31,7 @@ Press **⌘⇧5**, drag over what you want, point it out with arrows, shapes, te
 ### Capture
 - **⌘⇧5** dims the screen; the area you drag stays clear, with its size shown next to it.
 - A **crosshair and loupe** show the pixels under the cursor, with coordinates and hex color (macOS 14+).
+- **Snap to edges** (macOS 14+): while you draw, resize or move the selection, its sides snap to the visible edges on screen (windows, cards, panels, dividers), with an accent guide line. Press **G** or click *Snap* in the hint bar to turn it on or off; hold **⌥ Option** to skip it for one drag.
 - **Space** switches to window capture: the front window is highlighted right away, and hovering highlights another one. **Hold Shift** to pick a whole screen.
 - Nothing is captured until you say so. The selection stays on screen: drag its corners or edges to resize it, or drag it to move it. Then use the action bar next to it:
 
@@ -138,6 +139,7 @@ macOS ties the Screen Recording permission to the app's signature. With ad-hoc s
 - **Editor:** an `NSView` draws the image and the annotations with Core Graphics. Annotations are stored in image pixel coordinates, so the export is always at full resolution regardless of the window's zoom.
 - **Loupe:** when the overlay opens, ScreenCaptureKit takes a still picture of each display (excluding Snapmark's own windows); the loupe magnifies that picture. The crosshair and loupe are hidden right before the capture.
 - **Blur:** Core Image (pixelate, then Gaussian blur), clipped to the marked area.
+- **Snap to edges:** the same still picture is turned into a brightness map. Near each side of the selection, Snapmark looks for a line where the brightness jumps along most of that side, and moves the side onto it.
 - **Copy text:** Vision's on-device text recognition (no network), with automatic language detection. Lines are kept in reading order; text on the same row, like table cells, is separated by tabs.
 
 ### Publishing a release

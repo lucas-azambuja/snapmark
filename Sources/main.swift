@@ -73,6 +73,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             NSApp.terminate(nil)
             return
         }
+        // Development only: checks edge snapping on a synthetic screen (a card at x 100–300, y 80–220 points).
+        if args.contains("--snap-test") {
+            let w = 800, h = 600   // 400 × 300 points at 2×
+            let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            ctx.setFillColor(CGColor(gray: 0.96, alpha: 1)); ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+            ctx.setFillColor(CGColor(gray: 0.55, alpha: 1)); ctx.fill(CGRect(x: 200, y: 160, width: 400, height: 280))
+            let map = EdgeMap(image: ctx.makeImage()!, pointWidth: 400)!
+            func show(_ v: CGFloat?) -> String { v.map { String(format: "%.1f", $0) } ?? "none" }
+            print("left   near 104 ->", show(map.snapX(104, along: 100...200)), "(expect 100)")
+            print("right  near 295 ->", show(map.snapX(295, along: 100...200)), "(expect 300)")
+            print("bottom near 84  ->", show(map.snapY(84, along: 120...280)), "(expect 80)")
+            print("top    near 214 ->", show(map.snapY(214, along: 120...280)), "(expect 220)")
+            print("no edge near 40 ->", show(map.snapX(40, along: 100...200)), "(expect none)")
+            print("span misses card ->", show(map.snapX(104, along: 240...290)), "(expect none)")
+            NSApp.terminate(nil)
+            return
+        }
         if let i = args.firstIndex(of: "--ocr"), i + 1 < args.count,
            let img = NSImage(contentsOfFile: args[i + 1])?.cgImage(forProposedRect: nil, context: nil, hints: nil) {
             TextRecognizer.recognize(img) { text in
