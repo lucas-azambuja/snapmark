@@ -1,61 +1,68 @@
+<p align="center"><img src="assets/AppIcon-1024.png" width="128" alt="Snapmark icon"></p>
+
 # Snapmark
 
-Capturas de tela com anotações para macOS. Aperte **⌘⇧5**, selecione uma área e marque o que importa com setas, formas, texto ou borrão. Depois, copie ou salve.
+Screenshot annotation for macOS. Press **⌘⇧5**, select an area, and point out what matters with arrows, shapes, text, or blur. Then copy or save it.
 
-É um app nativo, pequeno e sem dependências: um único arquivo Swift com AppKit. Fica na barra de menus e não aparece no Dock.
+It's a small native app with no dependencies, written in Swift with AppKit. It lives in the menu bar and stays out of the Dock.
 
-> **Status: alpha.** Funciona no uso diário, mas ainda tem arestas. Relatos de bugs são bem-vindos.
+> **Status: alpha.** It works for daily use but still has rough edges. Bug reports are welcome.
 
-## Recursos
+## Features
 
-- **Captura de área** com ⌘⇧5. Na seleção, a barra de espaço alterna para captura de janela.
-- **Editor de anotações**:
+- **Area capture** with ⌘⇧5. The screen dims and the area you drag stays clear, with its size shown next to it. Esc cancels; the space bar switches to window capture.
+- Short animations: the dimming fades in, the captured area flashes, and the editor grows out of it.
+- **Annotation editor** on a translucent dark window:
 
-  | Ferramenta | Tecla |
+  | Tool | Key |
   |---|---|
-  | Seta | `A` |
-  | Reta | `L` |
-  | Retângulo | `R` |
-  | Círculo / elipse | `O` |
-  | Lápis (desenho livre) | `P` |
-  | Marca-texto | `H` |
-  | Borrar (pixeliza e desfoca) | `B` |
-  | Texto | `T` |
-  | Contador numerado (1, 2, 3…) | `N` |
+  | Select | `V` |
+  | Arrow | `A` |
+  | Line | `L` |
+  | Rectangle | `R` |
+  | Ellipse | `O` |
+  | Pen (freehand) | `P` |
+  | Highlighter | `H` |
+  | Blur (pixelate + blur) | `B` |
+  | Text | `T` |
+  | Counter (1, 2, 3…) | `N` |
 
-- 8 cores prontas e seletor de cor personalizada, com 4 espessuras de traço.
-- **Shift** trava retas e setas em ângulos de 45° e deixa retângulos e círculos com lados iguais.
-- **⌘Z** desfaz e **⇧⌘Z** refaz. **Delete** apaga a última anotação.
-- **⌘C** (ou Enter) copia para a área de transferência e fecha o editor. **⌘S** salva em PNG ou JPG.
-- **Esc** fecha o editor e pede confirmação se houver anotações não salvas.
-- Mantém a resolução Retina da captura.
-- Abre imagens que já existem no editor (menu → *Abrir imagem no editor…*).
-- Opção de iniciar junto com o sistema.
+- **Every annotation stays editable.** Click it with the Select tool to move it, drag its handles to resize it, or pick another color or stroke to change it. Double-click text to edit it. Delete (⌫ or the trash button) removes it, and the arrow keys nudge it (Shift for 10 pt).
+- A new annotation is selected right after you draw it, so you can adjust it straight away.
+- 8 preset colors plus a custom color picker, and 4 stroke widths shown as stroke previews.
+- **Shift** keeps lines and arrows at 45° angles and makes rectangles and ellipses square.
+- **⌘Z** undoes and **⇧⌘Z** redoes any change, including moves and edits.
+- **⌘C** (or Return) copies to the clipboard and closes the editor. **⌘S** saves as PNG or JPEG.
+- **Esc** clears the selection, or closes the editor (asking first if there are unsaved annotations).
+- Keeps the Retina resolution of the capture.
+- Opens existing images in the editor (menu → *Open Image in Editor…*).
+- *About Snapmark* and the version/build number in the menu.
+- Optional launch at login.
 
-## Requisitos
+## Requirements
 
-- macOS 13 (Ventura) ou mais novo
-- Apple Silicon ou Intel
+- macOS 13 (Ventura) or later
+- Apple silicon or Intel
 
-## Instalação
+## Installation
 
-### Pela release
+### From a release
 
-1. Baixe o `.zip` mais recente em [Releases](https://github.com/lucas-azambuja/snapmark/releases).
-2. Descompacte e mova o `Snapmark.app` para `/Applications`.
-3. Abra o Snapmark. Um ícone de câmera aparece na barra de menus.
+1. Download the latest `.zip` from [Releases](https://github.com/lucas-azambuja/snapmark/releases).
+2. Unzip it and move `Snapmark.app` to `/Applications`.
+3. Open Snapmark. Its icon shows up in the menu bar.
 
-O app não é assinado com certificado de desenvolvedor da Apple, então o macOS bloqueia a primeira abertura. Para liberar, use uma destas opções:
+The app isn't signed with an Apple Developer certificate, so macOS blocks the first launch. To allow it, either:
 
-- Tente abrir o app uma vez, vá em **Ajustes do Sistema → Privacidade e Segurança**, role até o aviso sobre o Snapmark e clique em **Abrir Mesmo Assim**.
-- Ou rode no Terminal:
+- Try to open the app once, go to **System Settings → Privacy & Security**, scroll to the message about Snapmark, and click **Open Anyway**.
+- Or run in Terminal:
   ```bash
   xattr -d com.apple.quarantine /Applications/Snapmark.app
   ```
 
-### Compilando o código
+### From source
 
-Precisa das Command Line Tools do Xcode (`xcode-select --install`).
+Requires the Xcode Command Line Tools (`xcode-select --install`).
 
 ```bash
 git clone https://github.com/lucas-azambuja/snapmark.git
@@ -63,65 +70,61 @@ cd snapmark
 ./build.sh --install
 ```
 
-## Configuração inicial
+## First run
 
-### 1. Liberar o atalho ⌘⇧5
+### 1. Free up ⌘⇧5
 
-O macOS usa ⌘⇧5 para a própria ferramenta de captura. Para o Snapmark receber o atalho, desligue o do sistema:
+macOS uses ⌘⇧5 for its own screenshot tool. To let Snapmark have it, turn off the system shortcut:
 
-**Ajustes do Sistema → Teclado → Atalhos de Teclado… → Capturas de Tela →** desmarque **"Opções de captura de tela e gravação"**.
+**System Settings → Keyboard → Keyboard Shortcuts… → Screenshots →** uncheck **"Screenshot and recording options"**.
 
-Se o atalho continuar ocupado, o menu do Snapmark mostra *"atalho ⌘⇧5 indisponível"*. A captura ainda funciona pelo menu.
+If the shortcut is still taken, the Snapmark menu shows *"⌘⇧5 shortcut unavailable"*. You can still capture from the menu.
 
-### 2. Permitir a Gravação de Tela
+### 2. Allow Screen Recording
 
-Na primeira captura, o macOS pede a permissão de **Gravação de Tela**. Autorize o Snapmark e, se pedido, reabra o app.
+On launch, Snapmark checks for the **Screen Recording** permission. If it's missing, a window walks you through it, with a button that opens the right place in System Settings. Once you turn it on, the window notices and lets you start.
 
-Se a captura vier só com o papel de parede, a permissão não foi concedida. Confira em **Ajustes do Sistema → Privacidade e Segurança → Gravação de Tela**.
+## Development
 
-## Desenvolvimento
-
-O código fica todo em [`Sources/main.swift`](Sources/main.swift). Não há projeto do Xcode: o `build.sh` chama o `swiftc` direto e monta o `.app`.
+The code is in [`Sources/`](Sources), one file per area (model, rendering, canvas, editor, selection overlay, permission screen, app). There's no Xcode project: `build.sh` calls `swiftc` directly and assembles the `.app`. The icons live in [`assets/`](assets); `build.sh` turns `AppIcon-1024.png` into `AppIcon.icns` and copies the menu bar icon into the app.
 
 ```bash
-./build.sh                    # compila em build/Snapmark.app (binário universal)
-./build.sh --run              # compila e roda sem instalar
-./build.sh --run imagem.png   # compila e abre a imagem direto no editor
-./build.sh --install          # compila e instala em /Applications
+./build.sh                    # builds build/Snapmark.app (universal binary)
+./build.sh --run              # builds and runs without installing
+./build.sh --run image.png    # builds and opens the image straight in the editor
+./build.sh --install          # builds and installs to /Applications
 ```
 
-`--run imagem.png` é o caminho mais rápido para mexer no editor: não precisa capturar a tela nem dar permissão.
+`--run image.png` is the fastest way to work on the editor: no screen capture or permission needed. To test capturing, use `--install`: macOS only lists apps for Screen Recording when they're in Applications.
 
-Só uma cópia do app consegue registrar o ⌘⇧5 por vez. Os modos `--run` e `--install` fecham qualquer Snapmark aberto antes de iniciar.
+Only one copy of the app can register ⌘⇧5 at a time. `--run` and `--install` quit any running Snapmark first.
 
-Como o app é assinado apenas localmente (ad-hoc), o macOS pode pedir a permissão de Gravação de Tela de novo depois de recompilar. Se isso acontecer, remova o Snapmark da lista em Privacidade e Segurança e autorize outra vez.
+macOS ties the Screen Recording permission to the app's signature. With ad-hoc signing, every build has a different signature, so each new build asks for the permission once. To avoid that, create a local certificate once with `./scripts/create-dev-cert.sh`; `build.sh` then signs every build with it.
 
-### Como funciona
+### How it works
 
-- **Atalho global:** `RegisterEventHotKey` do Carbon, que não precisa de permissão de Acessibilidade.
-- **Seleção de área:** usa o `screencapture -i` do próprio macOS.
-- **Editor:** um `NSView` desenha a imagem e as anotações com Core Graphics. As anotações ficam em coordenadas de pixel da imagem, então a exportação sai na resolução original, não importa o zoom da janela.
-- **Borrar:** Core Image (pixelização seguida de desfoque gaussiano), recortado na área marcada.
+- **Global shortcut:** Carbon's `RegisterEventHotKey`, which doesn't need the Accessibility permission.
+- **Area selection:** transparent windows on every screen draw the dimming, with a cutout over the selection. The image is captured with `screencapture -R` while the overlay is still up (nothing covers the selected area), and only then does the overlay fade out. Animation timings live in `enum Motion`.
+- **Editor:** an `NSView` draws the image and the annotations with Core Graphics. Annotations are stored in image pixel coordinates, so the export is always at full resolution regardless of the window's zoom.
+- **Blur:** Core Image (pixelate, then Gaussian blur), clipped to the marked area.
 
-### Publicando uma release
+### Publishing a release
 
-1. Atualize o arquivo [`VERSION`](VERSION).
-2. Escreva as notas em `release-notes/<versão>.md`.
-3. Faça commit e rode `./release.sh`.
+1. Update the [`VERSION`](VERSION) file.
+2. Write the notes in `release-notes/<version>.md`.
+3. Commit and run `./release.sh`.
 
-O script compila, gera o `.zip` com o checksum, cria e envia a tag `v<versão>` e publica a release com o [GitHub CLI](https://cli.github.com/). Versões com sufixo (como `0.1.0-alpha.0`) saem como pre-release.
+The script builds the app, creates the `.zip` and its checksum, creates and pushes the `v<version>` tag, and publishes the release with the [GitHub CLI](https://cli.github.com/). Versions with a suffix (like `0.1.0-alpha.0`) are published as pre-releases.
 
-## Limitações conhecidas
+## Known limitations
 
-- Interface só em português.
-- O atalho é fixo em ⌘⇧5.
-- Anotações não podem ser selecionadas nem movidas depois de desenhadas.
-- Não captura a tela inteira com atalho próprio, não grava vídeo e não faz OCR.
+- The shortcut is fixed to ⌘⇧5.
+- No full-screen capture shortcut, video recording, or OCR.
 
-## Contribuindo
+## Contributing
 
-Issues e pull requests são bem-vindos. Para mudanças maiores, abra uma issue antes para conversarmos sobre a ideia.
+Issues and pull requests are welcome. For bigger changes, please open an issue first so we can talk it through.
 
-## Licença
+## License
 
 [MIT](LICENSE)

@@ -1,7 +1,7 @@
 #!/bin/zsh
-# Publica uma release no GitHub com o Snapmark.app compilado.
-# Uso: atualize o arquivo VERSION, escreva release-notes/<versão>.md, faça commit e rode ./release.sh
-# Versões com sufixo (ex.: 0.1.0-alpha.0) saem como pre-release.
+# Publishes a GitHub release with the built Snapmark.app.
+# Usage: update VERSION, write release-notes/<version>.md, commit, then run ./release.sh
+# Versions with a suffix (e.g. 0.1.0-alpha.0) are published as pre-releases.
 set -e
 cd "$(dirname "$0")"
 
@@ -10,9 +10,9 @@ TAG="v$VERSION"
 NOTES="release-notes/$VERSION.md"
 ZIP="dist/Snapmark-$VERSION.zip"
 
-[[ -f "$NOTES" ]] || { echo "Faltam as notas: $NOTES"; exit 1; }
-[[ -z "$(git status --porcelain)" ]] || { echo "Há mudanças sem commit. Faça commit antes."; exit 1; }
-git rev-parse "$TAG" >/dev/null 2>&1 && { echo "A tag $TAG já existe."; exit 1; }
+[[ -f "$NOTES" ]] || { echo "Missing release notes: $NOTES"; exit 1; }
+[[ -z "$(git status --porcelain)" ]] || { echo "There are uncommitted changes. Commit them first."; exit 1; }
+git rev-parse "$TAG" >/dev/null 2>&1 && { echo "Tag $TAG already exists."; exit 1; }
 
 ./build.sh
 rm -rf dist && mkdir -p dist
@@ -26,4 +26,4 @@ PRE=()
 [[ "$VERSION" == *-* ]] && PRE=(--prerelease)
 gh release create "$TAG" "$ZIP" "$ZIP.sha256" \
   --title "Snapmark $VERSION" --notes-file "$NOTES" --verify-tag "${PRE[@]}"
-echo "Release $TAG publicada."
+echo "Release $TAG published."

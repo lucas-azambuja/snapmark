@@ -4,14 +4,15 @@
 <dict>
     <key>CFBundleName</key><string>Snapmark</string>
     <key>CFBundleDisplayName</key><string>Snapmark</string>
-    <key>CFBundleIdentifier</key><string>io.github.lucas-azambuja.snapmark</string>
+    <key>CFBundleIdentifier</key><string>dev.lucasazambuja.snapmark</string>
     <key>CFBundleExecutable</key><string>Snapmark</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>1.0</string>
     <key>CFBundleVersion</key><string>1</string>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
-    <key>NSScreenCaptureUsageDescription</key><string>O Snapmark precisa capturar a tela para tirar screenshots.</string>
+    <key>NSScreenCaptureUsageDescription</key><string>Snapmark needs to record the screen to take screenshots.</string>
 </dict>
 </plist>
