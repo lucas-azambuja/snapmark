@@ -43,11 +43,15 @@ Capturas de tela com anotações para macOS. Aperte **⌘⇧5**, selecione uma �
 
 1. Baixe o `.zip` mais recente em [Releases](https://github.com/lucas-azambuja/snapmark/releases).
 2. Descompacte e mova o `Snapmark.app` para `/Applications`.
-3. O app não é assinado com certificado de desenvolvedor da Apple, então o macOS bloqueia a primeira abertura. Para liberar:
-   ```bash
-   xattr -dr com.apple.quarantine /Applications/Snapmark.app
-   ```
-4. Abra o Snapmark. Um ícone de câmera aparece na barra de menus.
+3. Abra o Snapmark. Um ícone de câmera aparece na barra de menus.
+
+O app não é assinado com certificado de desenvolvedor da Apple, então o macOS bloqueia a primeira abertura. Para liberar, use uma destas opções:
+
+- Tente abrir o app uma vez, vá em **Ajustes do Sistema → Privacidade e Segurança**, role até o aviso sobre o Snapmark e clique em **Abrir Mesmo Assim**.
+- Ou rode no Terminal:
+  ```bash
+  xattr -d com.apple.quarantine /Applications/Snapmark.app
+  ```
 
 ### Compilando o código
 
