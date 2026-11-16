@@ -38,6 +38,7 @@ Press **⌘⇧5**, drag over what you want, point it out with arrows, shapes, te
   |---|---|
   | Capture and open the editor | `Return` (or double-click) |
   | Copy straight to the clipboard | `⌘C` |
+  | Copy the **text** in the area (OCR) | `⌘⇧C` |
   | Save straight to disk | `⌘S` |
   | Record the screen | `R` |
   | Screenshot timer: off, 3, 5 or 10 seconds | `T` |
@@ -47,7 +48,7 @@ Press **⌘⇧5**, drag over what you want, point it out with arrows, shapes, te
 - Keeps the full Retina resolution. Windows are captured without their shadow.
 
 ### Record
-- The action bar has two groups: **Video** (system audio, microphone, Record) and **Screenshot** (timer, copy, save, capture). The timer only applies to screenshots.
+- The action bar has two groups: **Video** (system audio, microphone, Record) and **Screenshot** (timer, copy text, copy, save, capture). The timer only applies to screenshots.
 - **Screen recording** of an area, a window or a whole screen, saved as MP4 (H.264, up to 60 fps) with the cursor.
 - Optional **system audio** and **microphone** (macOS 15+), each with a live level meter. The arrow next to the microphone picks the input device.
 - A 3-second countdown (capture warms up during it, so the recording starts sharp and with sound), then the screen stays dimmed around the recorded area (clicks still go through), and a floating control shows the elapsed time, live audio meters, **Stop** and **Discard**. Clicking the menu bar icon or pressing ⌘⇧5 also stops.
@@ -137,6 +138,7 @@ macOS ties the Screen Recording permission to the app's signature. With ad-hoc s
 - **Editor:** an `NSView` draws the image and the annotations with Core Graphics. Annotations are stored in image pixel coordinates, so the export is always at full resolution regardless of the window's zoom.
 - **Loupe:** when the overlay opens, ScreenCaptureKit takes a still picture of each display (excluding Snapmark's own windows); the loupe magnifies that picture. The crosshair and loupe are hidden right before the capture.
 - **Blur:** Core Image (pixelate, then Gaussian blur), clipped to the marked area.
+- **Copy text:** Vision's on-device text recognition (no network), with automatic language detection. Lines are kept in reading order; text on the same row, like table cells, is separated by tabs.
 
 ### Publishing a release
 
@@ -149,7 +151,7 @@ The script builds the app, creates the `.zip` and its checksum, creates and push
 ## Known limitations
 
 - The shortcut is fixed to ⌘⇧5.
-- No OCR or GIF export yet.
+- No GIF export yet.
 
 ## Contributing
 

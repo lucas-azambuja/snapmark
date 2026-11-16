@@ -73,6 +73,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             NSApp.terminate(nil)
             return
         }
+        if let i = args.firstIndex(of: "--ocr"), i + 1 < args.count,
+           let img = NSImage(contentsOfFile: args[i + 1])?.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            TextRecognizer.recognize(img) { text in
+                print(text)
+                NSApp.terminate(nil)
+            }
+            return
+        }
         if let i = args.firstIndex(of: "--snapshot-recording"), i + 1 < args.count {
             let c = RecordingControlPanel(near: NSRect(x: 200, y: 400, width: 600, height: 300), sound: true, mic: true)
             c.startClock(from: Date().addingTimeInterval(-83))
@@ -273,6 +281,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             try? FileManager.default.removeItem(at: url)
             QuickAccess.shared.show(image: img, fileURL: file, caption: "Copied to clipboard") { [weak self] u in
                 self?.openEditor(url: u, deleteAfter: false)
+            }
+        case .text:
+            guard let data = try? Data(contentsOf: url), let img = NSImage(data: data),
+                  let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+            try? FileManager.default.removeItem(at: url)
+            TextRecognizer.recognize(cg) { text in
+                guard !text.isEmpty else {
+                    NSSound.beep()
+                    QuickAccess.shared.show(image: img, fileURL: QuickAccess.temporaryFile(png: data) ?? url,
+                                            caption: "No text found") { [weak self] u in
+                        self?.openEditor(url: u, deleteAfter: false)
+                    }
+                    return
+                }
+                let pb = NSPasteboard.general
+                pb.clearContents()
+                pb.setString(text, forType: .string)
+                NSSound(named: "Pop")?.play()
+                let words = text.split { $0.isWhitespace || $0.isNewline }.count
+                QuickAccess.shared.show(image: img, fileURL: QuickAccess.temporaryFile(png: data) ?? url,
+                                        caption: "Text copied · \(words) word\(words == 1 ? "" : "s")") { [weak self] u in
+                    self?.openEditor(url: u, deleteAfter: false)
+                }
             }
         case .save:
             let dest = Self.saveFolder().appendingPathComponent("Screenshot \(Self.timestamp()).png")

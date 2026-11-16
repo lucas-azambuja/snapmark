@@ -33,6 +33,8 @@ enum CaptureTarget {
 /// What happens with a still capture.
 enum CaptureOutput {
     case edit, copy, save
+    /// Recognize the text in the capture and copy it.
+    case text
 }
 
 enum SelectionResult {
@@ -832,7 +834,7 @@ final class SelectionController {
             setMode(mode == .window ? .area : .window)
         case kVK_Return, kVK_ANSI_KeypadEnter:
             if locked { perform(.capture) } else if mode != .area { lock() }
-        case kVK_ANSI_C where cmd && locked: perform(.copy)
+        case kVK_ANSI_C where cmd && locked: perform(e.modifierFlags.contains(.shift) ? .copyText : .copy)
         case kVK_ANSI_S where cmd && locked: perform(.save)
         case kVK_ANSI_R where !cmd && locked: perform(.record)
         case kVK_ANSI_T where !cmd && locked: perform(.timer)
@@ -845,7 +847,7 @@ final class SelectionController {
     func keyEquivalent(_ e: NSEvent) -> Bool {
         guard locked, e.modifierFlags.contains(.command) else { return false }
         switch Int(e.keyCode) {
-        case kVK_ANSI_C: perform(.copy); return true
+        case kVK_ANSI_C: perform(e.modifierFlags.contains(.shift) ? .copyText : .copy); return true
         case kVK_ANSI_S: perform(.save); return true
         default: return false
         }
@@ -874,6 +876,7 @@ final class SelectionController {
         case .micDevice: showMicrophoneMenu()
         case .record: done(.record(t, delay: CaptureOptions.delay))
         case .copy: done(.capture(t, .copy, delay: CaptureOptions.delay))
+        case .copyText: done(.capture(t, .text, delay: CaptureOptions.delay))
         case .save: done(.capture(t, .save, delay: CaptureOptions.delay))
         case .capture: done(.capture(t, .edit, delay: CaptureOptions.delay))
         }

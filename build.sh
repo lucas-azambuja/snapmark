@@ -43,7 +43,7 @@ cp assets/MenuBarIcon.png assets/MenuBarIcon@2x.png "$APP/Contents/Resources/"
 for ARCH in arm64 x86_64; do
   swiftc -O -swift-version 5 -target "$ARCH-apple-macos13.0" \
     -o "build/obj/Snapmark-$ARCH" Sources/*.swift \
-    -framework Cocoa -framework Carbon -framework ServiceManagement -framework ScreenCaptureKit -framework AVFoundation -framework AVKit
+    -framework Cocoa -framework Carbon -framework ServiceManagement -framework ScreenCaptureKit -framework AVFoundation -framework AVKit -framework Vision
 done
 lipo -create build/obj/Snapmark-arm64 build/obj/Snapmark-x86_64 -output "$APP/Contents/MacOS/Snapmark"
 

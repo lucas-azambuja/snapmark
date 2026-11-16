@@ -9,7 +9,7 @@ enum ToolbarAction {
     // Video
     case sound, mic, micDevice, record
     // Screenshot
-    case timer, copy, save, capture
+    case timer, copyText, copy, save, capture
 }
 
 struct ToolbarButton {
@@ -115,6 +115,7 @@ enum CaptureToolbar {
         video.append((.record, "record.circle.fill", "Record", false, false, .systemRed, false, nil))
         let shot: [Spec] = [
             (.timer, "timer", delay == 0 ? nil : "\(delay)s", false, delay > 0, nil, false, nil),
+            (.copyText, "text.viewfinder", nil, false, false, nil, false, nil),
             (.copy, "doc.on.doc", nil, false, false, nil, false, nil),
             (.save, "square.and.arrow.down", nil, false, false, nil, false, nil),
             (.capture, "camera.fill", "Capture", true, false, nil, false, nil),
@@ -158,6 +159,7 @@ enum CaptureToolbar {
         case .micDevice: return "Choose microphone"
         case .record: return "Record screen  R"
         case .timer: return "Screenshot timer  T"
+        case .copyText: return "Copy text (OCR)  ⌘⇧C"
         case .copy: return "Copy screenshot  ⌘C"
         case .save: return "Save screenshot  ⌘S"
         case .capture: return "Capture screenshot  ⏎"
