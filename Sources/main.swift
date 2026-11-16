@@ -45,6 +45,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             NSApp.terminate(nil)
             return
         }
+        if let i = args.firstIndex(of: "--snapshot-overlay"), i + 2 < args.count,
+           let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: args[i + 1]) as CFURL, nil),
+           let img = CGImageSourceCreateImageAtIndex(src, 0, nil) {
+            let size = NSSize(width: CGFloat(img.width) / 2, height: CGFloat(img.height) / 2)
+            SelectionController.renderPreview(snapshot: img, size: size,
+                                              cursor: NSPoint(x: size.width * 0.4, y: size.height * 0.6),
+                                              output: URL(fileURLWithPath: args[i + 2]))
+            NSApp.terminate(nil)
+            return
+        }
+        if let i = args.firstIndex(of: "--snapshot-thumb"), i + 2 < args.count,
+           let img = NSImage(contentsOf: URL(fileURLWithPath: args[i + 1])) {
+            let v = ThumbnailView(image: img, fileURL: URL(fileURLWithPath: args[i + 1]), caption: "Copied to clipboard",
+                                  size: NSSize(width: 252, height: 154))
+            if let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) {
+                v.cacheDisplay(in: v.bounds, to: rep)
+                try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[i + 2]))
+            }
+            NSApp.terminate(nil)
+            return
+        }
         if let i = args.firstIndex(of: "--snapshot-permission"), i + 1 < args.count {
             let w = PermissionWindowController()
             if let view = w.window?.contentView {

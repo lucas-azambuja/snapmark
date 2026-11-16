@@ -344,6 +344,17 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         NSSound(named: "Pop")?.play()
         finished = true
         window?.close()
+        if let url = QuickAccess.temporaryFile(png: png) {
+            showThumbnail(rep, fileURL: url, caption: "Copied to clipboard")
+        }
+    }
+
+    private func showThumbnail(_ rep: NSBitmapImageRep, fileURL: URL, caption: String) {
+        let img = NSImage(size: rep.size)
+        img.addRepresentation(rep)
+        QuickAccess.shared.show(image: img, fileURL: fileURL, caption: caption) { url in
+            AppDelegate.shared?.openEditor(url: url, deleteAfter: false)
+        }
     }
 
     @objc func saveImage() {
@@ -370,6 +381,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
                 UserDefaults.standard.set(url.deletingLastPathComponent().path, forKey: "lastSaveDir")
                 self?.finished = true
                 self?.window?.close()
+                self?.showThumbnail(rep, fileURL: url, caption: "Saved")
             } catch {
                 NSAlert(error: error).beginSheetModal(for: win)
             }

@@ -11,7 +11,9 @@ It's a small native app with no dependencies, written in Swift with AppKit. It l
 ## Features
 
 - **Area capture** with ⌘⇧5. The screen dims and the area you drag stays clear, with its size shown next to it. Esc cancels; the space bar switches to window capture.
+- **Crosshair and loupe** while selecting: guide lines follow the cursor, and a magnifier shows the pixels under it with their coordinates and hex color (macOS 14 or later).
 - Short animations: the dimming fades in, the captured area flashes, and the editor grows out of it.
+- **Floating thumbnail** after you copy or save: it slides into the bottom-left corner for a few seconds. Drag it into any app to drop the image there, or click it to reopen the image in the editor. Hovering keeps it on screen.
 - **Annotation editor** on a translucent dark window:
 
   | Tool | Key |
@@ -46,8 +48,6 @@ It's a small native app with no dependencies, written in Swift with AppKit. It l
 
 ## Installation
 
-### From a release
-
 1. Download the latest `.zip` from [Releases](https://github.com/lucas-azambuja/snapmark/releases).
 2. Unzip it and move `Snapmark.app` to `/Applications`.
 3. Open Snapmark. Its icon shows up in the menu bar.
@@ -59,16 +59,6 @@ The app isn't signed with an Apple Developer certificate, so macOS blocks the fi
   ```bash
   xattr -d com.apple.quarantine /Applications/Snapmark.app
   ```
-
-### From source
-
-Requires the Xcode Command Line Tools (`xcode-select --install`).
-
-```bash
-git clone https://github.com/lucas-azambuja/snapmark.git
-cd snapmark
-./build.sh --install
-```
 
 ## First run
 
@@ -86,7 +76,7 @@ On launch, Snapmark checks for the **Screen Recording** permission. If it's miss
 
 ## Development
 
-The code is in [`Sources/`](Sources), one file per area (model, rendering, canvas, editor, selection overlay, permission screen, app). There's no Xcode project: `build.sh` calls `swiftc` directly and assembles the `.app`. The icons live in [`assets/`](assets); `build.sh` turns `AppIcon-1024.png` into `AppIcon.icns` and copies the menu bar icon into the app.
+The code is in [`Sources/`](Sources), one file per area (model, rendering, canvas, editor, selection overlay, permission screen, app). There's no Xcode project: `build.sh` calls `swiftc` directly and assembles the `.app`. It needs the Xcode Command Line Tools; with full Xcode installed, it also compiles the Icon Composer icon in [`assets/AppIcon.icon`](assets/AppIcon.icon), which keeps the icon magenta when macOS shows dark icons.
 
 ```bash
 ./build.sh                    # builds build/Snapmark.app (universal binary)
@@ -106,6 +96,7 @@ macOS ties the Screen Recording permission to the app's signature. With ad-hoc s
 - **Global shortcut:** Carbon's `RegisterEventHotKey`, which doesn't need the Accessibility permission.
 - **Area selection:** transparent windows on every screen draw the dimming, with a cutout over the selection. The image is captured with `screencapture -R` while the overlay is still up (nothing covers the selected area), and only then does the overlay fade out. Animation timings live in `enum Motion`.
 - **Editor:** an `NSView` draws the image and the annotations with Core Graphics. Annotations are stored in image pixel coordinates, so the export is always at full resolution regardless of the window's zoom.
+- **Loupe:** when the overlay opens, ScreenCaptureKit takes a still picture of each display (excluding Snapmark's own windows); the loupe magnifies that picture. The crosshair and loupe are hidden right before the capture.
 - **Blur:** Core Image (pixelate, then Gaussian blur), clipped to the marked area.
 
 ### Publishing a release
