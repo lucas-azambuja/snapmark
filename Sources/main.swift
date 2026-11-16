@@ -5,6 +5,7 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 import ServiceManagement
 import UniformTypeIdentifiers
+import AVFoundation
 
 // MARK: - App
 
@@ -24,6 +25,7 @@ private func hotKeyHandler(_: EventHandlerCallRef?, _: EventRef?, _: UnsafeMutab
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     static var shared: AppDelegate?
     private var statusItem: NSStatusItem!
+    private var statusMenu: NSMenu?
     private var editors: [EditorWindowController] = []
     private var capturing = false
     private var hotKeyRef: EventHotKeyRef?
@@ -49,9 +51,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
            let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: args[i + 1]) as CFURL, nil),
            let img = CGImageSourceCreateImageAtIndex(src, 0, nil) {
             let size = NSSize(width: CGFloat(img.width) / 2, height: CGFloat(img.height) / 2)
+            let mode: CaptureMode = args.contains("--window") ? .window : args.contains("--screen") ? .screen : .area
+            let locked = args.contains("--locked")
             SelectionController.renderPreview(snapshot: img, size: size,
                                               cursor: NSPoint(x: size.width * 0.4, y: size.height * 0.6),
-                                              output: URL(fileURLWithPath: args[i + 2]))
+                                              output: URL(fileURLWithPath: args[i + 2]), mode: mode,
+                                              fakeWindow: NSRect(x: size.width * 0.15, y: size.height * 0.25,
+                                                                 width: size.width * 0.55, height: size.height * 0.6),
+                                              locked: locked)
             NSApp.terminate(nil)
             return
         }
@@ -62,6 +69,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) {
                 v.cacheDisplay(in: v.bounds, to: rep)
                 try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[i + 2]))
+            }
+            NSApp.terminate(nil)
+            return
+        }
+        if let i = args.firstIndex(of: "--snapshot-recording"), i + 1 < args.count {
+            let c = RecordingControlPanel(near: NSRect(x: 200, y: 400, width: 600, height: 300), sound: true, mic: true)
+            c.startClock(from: Date().addingTimeInterval(-83))
+            RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+            if let view = c.contentView, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                view.cacheDisplay(in: view.bounds, to: rep)
+                try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[i + 1]))
+            }
+            NSApp.terminate(nil)
+            return
+        }
+        if let i = args.firstIndex(of: "--snapshot-video"), i + 2 < args.count {
+            let ed = VideoEditorWindowController(url: URL(fileURLWithPath: args[i + 1]),
+                                                 trackNames: ["Desktop audio", "MacBook Pro Microphone"], from: nil)
+            ed.prepareForDisplay()
+            RunLoop.main.run(until: Date().addingTimeInterval(2))
+            if let view = ed.window?.contentView {
+                view.layoutSubtreeIfNeeded()
+                if let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                    view.cacheDisplay(in: view.bounds, to: rep)
+                    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[i + 2]))
+                }
             }
             NSApp.terminate(nil)
             return
@@ -130,6 +163,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Snapmark", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem.menu = menu
+        statusMenu = menu
     }
 
     func menuWillOpen(_ menu: NSMenu) {
@@ -149,6 +183,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc func capture() {
+        if ScreenRecorder.isRecording { stopRecording(); return }
         guard !capturing else { return }
         guard ensureScreenCapturePermission() else { return }
         capturing = true
@@ -166,23 +201,199 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self?.capturing = false
             }
             sel.restorePreviousApp()
-        case .window:
-            // Barra de espaço: modo de captura de janela do próprio macOS.
+        case .capture(let target, let output, let delay) where delay > 0:
+            // Give the screen back so menus and hovers can be set up during the countdown.
             sel.dismissImmediately()
             overlay = nil
-            runScreencapture(["-i", "-W"]) { [weak self] url in
-                if let url { self?.openEditor(url: url, deleteAfter: true) } else { sel.restorePreviousApp() }
+            sel.restorePreviousApp()
+            CountdownPanel.run(seconds: delay, centeredOn: target.frame) { [weak self] in
+                self?.shoot(target, output: output, overlay: nil)
             }
-        case .area(let r):
-            // A área selecionada não tem overlay por cima, então dá para capturar
-            // com o overlay ainda na tela e só depois animar a saída.
-            let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
-            let region = "\(Int(r.minX)),\(Int(primaryHeight - r.maxY)),\(Int(r.width)),\(Int(r.height))"
-            runScreencapture(["-R", region]) { [weak self] url in
-                sel.dismiss(flash: url != nil) { self?.overlay = nil }
-                if let url { self?.openEditor(url: url, deleteAfter: true, from: r) } else { sel.restorePreviousApp() }
+        case .capture(let target, let output, _):
+            shoot(target, output: output, overlay: sel)
+        case .record(let target, let delay):
+            sel.dismissImmediately()
+            overlay = nil
+            sel.restorePreviousApp()
+            // Start capturing right away so the stream and audio are warmed up when the countdown ends.
+            recordingReady = false
+            countdownDone = false
+            startRecording(target)
+            CountdownPanel.run(seconds: max(delay, 3), centeredOn: target.frame) { [weak self] in
+                self?.countdownDone = true
+                self?.armIfReady(target)
             }
         }
+    }
+
+    /// Takes the still capture. When the overlay is still up, it only has to go first for full screens.
+    private func shoot(_ target: CaptureTarget, output: CaptureOutput, overlay sel: SelectionController?) {
+        let frame = target.frame
+        let finish: (URL?) -> Void = { [weak self] url in
+            self?.capturing = false
+            if let sel {
+                sel.dismiss(flash: url != nil) { self?.overlay = nil }
+                if url == nil { sel.restorePreviousApp() }
+            }
+            guard let url else { return }
+            self?.deliver(url, output: output, from: frame)
+        }
+        switch target {
+        case .window(let id, _):
+            // `-l` captures the window itself, so nothing on top matters; `-o` leaves out the shadow.
+            runScreencapture(["-l", "\(id)", "-o"], done: finish)
+        case .area(let r):
+            runScreencapture(["-R", Self.region(r)], done: finish)
+        case .screen(let r):
+            sel?.dismissImmediately()
+            if sel != nil { overlay = nil }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                self.runScreencapture(["-R", Self.region(r)]) { url in
+                    self.capturing = false
+                    if let url { self.deliver(url, output: output, from: frame) } else { sel?.restorePreviousApp() }
+                }
+            }
+        }
+    }
+
+    /// Opens the editor, or copies/saves straight away and shows the floating thumbnail.
+    private func deliver(_ url: URL, output: CaptureOutput, from frame: NSRect) {
+        switch output {
+        case .edit:
+            openEditor(url: url, deleteAfter: true, from: frame)
+        case .copy:
+            guard let data = try? Data(contentsOf: url), let img = NSImage(data: data) else { return }
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.declareTypes([.png, .tiff], owner: nil)
+            pb.setData(data, forType: .png)
+            if let tiff = img.tiffRepresentation { pb.setData(tiff, forType: .tiff) }
+            NSSound(named: "Pop")?.play()
+            let file = QuickAccess.temporaryFile(png: data) ?? url
+            try? FileManager.default.removeItem(at: url)
+            QuickAccess.shared.show(image: img, fileURL: file, caption: "Copied to clipboard") { [weak self] u in
+                self?.openEditor(url: u, deleteAfter: false)
+            }
+        case .save:
+            let dest = Self.saveFolder().appendingPathComponent("Screenshot \(Self.timestamp()).png")
+            do {
+                try FileManager.default.moveItem(at: url, to: dest)
+                NSSound(named: "Pop")?.play()
+                guard let img = NSImage(contentsOf: dest) else { return }
+                QuickAccess.shared.show(image: img, fileURL: dest, caption: "Saved") { [weak self] u in
+                    self?.openEditor(url: u, deleteAfter: false)
+                }
+            } catch {
+                NSApp.activate(ignoringOtherApps: true)
+                NSAlert(error: error).runModal()
+            }
+        }
+    }
+
+    static func saveFolder() -> URL {
+        if let last = UserDefaults.standard.string(forKey: "lastSaveDir") { return URL(fileURLWithPath: last) }
+        return FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory())
+    }
+
+    static func timestamp() -> String {
+        let fmt = DateFormatter()
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
+        return fmt.string(from: Date())
+    }
+
+    // MARK: Recording
+
+    private var recordingDim: [RecordingDimWindow] = []
+    private var videoEditors: [VideoEditorWindowController] = []
+    private var recordingControls: RecordingControlPanel?
+
+    private func startRecording(_ target: CaptureTarget) {
+        let begin = { [weak self] in
+            ScreenRecorder.start(target: target, sound: CaptureOptions.sound, mic: CaptureOptions.mic) { error in
+                guard let self else { return }
+                self.capturing = false
+                if let error {
+                    NSApp.activate(ignoringOtherApps: true)
+                    let alert = NSAlert(error: error)
+                    alert.messageText = "Couldn't start recording"
+                    alert.runModal()
+                    return
+                }
+                self.recordingReady = true
+                self.armIfReady(target)
+            }
+        }
+        if CaptureOptions.mic, CaptureOptions.micAvailable {
+            AVCaptureDevice.requestAccess(for: .audio) { _ in DispatchQueue.main.async { begin() } }
+        } else {
+            begin()
+        }
+    }
+
+    private var recordingReady = false
+    private var countdownDone = false
+
+    /// Begins writing once both the stream is running and the countdown is over.
+    private func armIfReady(_ target: CaptureTarget) {
+        guard recordingReady, countdownDone, let r = ScreenRecorder.current else { return }
+        recordingReady = false
+        r.arm()
+        showRecordingUI(for: target)
+    }
+
+    private func showRecordingUI(for target: CaptureTarget) {
+        recordingDim = RecordingDimWindow.cover(target.frame)
+        recordingDim.forEach { $0.orderFrontRegardless() }
+        let c = RecordingControlPanel(near: target.frame, sound: CaptureOptions.sound,
+                                      mic: CaptureOptions.mic && CaptureOptions.micAvailable)
+        c.onStop = { [weak self] in self?.stopRecording() }
+        c.onDiscard = { [weak self] in self?.stopRecording(discard: true) }
+        c.startClock(from: ScreenRecorder.current?.startDate ?? Date())
+        c.orderFrontRegardless()
+        recordingControls = c
+        // While recording, clicking the menu bar icon stops it.
+        statusItem.menu = nil
+        statusItem.button?.image = Theme.symbol("stop.circle.fill", size: 15, weight: .regular, color: .systemRed)
+        statusItem.button?.target = self
+        statusItem.button?.action = #selector(stopRecordingFromMenu)
+    }
+
+    @objc private func stopRecordingFromMenu() { stopRecording() }
+
+    func stopRecording(discard: Bool = false) {
+        guard let r = ScreenRecorder.current else { return }
+        recordingDim.forEach { $0.orderOut(nil) }
+        recordingControls?.orderOut(nil)
+        recordingDim = []
+        recordingControls = nil
+        restoreStatusItem()
+        let names = r.audioTrackNames
+        r.stop { [weak self] url in
+            guard let self, let url else { return }
+            if discard { try? FileManager.default.removeItem(at: url); return }
+            // Review it before saving: preview, trim and audio tracks.
+            let ed = VideoEditorWindowController(url: url, trackNames: names, from: r.target.frame)
+            ed.onClose = { [weak self] e in self?.videoEditors.removeAll { $0 === e } }
+            self.videoEditors.append(ed)
+            ed.present()
+        }
+    }
+
+    private func restoreStatusItem() {
+        statusItem.button?.action = nil
+        statusItem.menu = statusMenu
+        let img = Bundle.main.image(forResource: "MenuBarIcon")
+            ?? NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "Snapmark")
+        img?.isTemplate = true
+        statusItem.button?.image = img
+    }
+
+    /// `screencapture -R` takes x,y,w,h in points with the origin at the top-left of the main display.
+    private static func region(_ r: NSRect) -> String {
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+        return "\(Int(r.minX)),\(Int(primaryHeight - r.maxY)),\(Int(r.width)),\(Int(r.height))"
     }
 
     private func runScreencapture(_ args: [String], done: @escaping (URL?) -> Void) {

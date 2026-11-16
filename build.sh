@@ -43,7 +43,7 @@ cp assets/MenuBarIcon.png assets/MenuBarIcon@2x.png "$APP/Contents/Resources/"
 for ARCH in arm64 x86_64; do
   swiftc -O -swift-version 5 -target "$ARCH-apple-macos13.0" \
     -o "build/obj/Snapmark-$ARCH" Sources/*.swift \
-    -framework Cocoa -framework Carbon -framework ServiceManagement -framework ScreenCaptureKit
+    -framework Cocoa -framework Carbon -framework ServiceManagement -framework ScreenCaptureKit -framework AVFoundation -framework AVKit
 done
 lipo -create build/obj/Snapmark-arm64 build/obj/Snapmark-x86_64 -output "$APP/Contents/MacOS/Snapmark"
 
@@ -71,8 +71,9 @@ if [[ "$1" == "--run" ]]; then
 fi
 if [[ "$1" == "--install" ]]; then
   pkill -x Snapmark 2>/dev/null || true
+  sleep 1   # let the old copy quit, or `open` fails with error -600
   rm -rf /Applications/Snapmark.app
   cp -R "$APP" /Applications/
-  open /Applications/Snapmark.app
+  open /Applications/Snapmark.app || { sleep 1; open /Applications/Snapmark.app; }
   echo "Installed to /Applications/Snapmark.app"
 fi

@@ -120,7 +120,7 @@ class PadControl: NSControl {
 }
 
 final class IconButton: PadControl {
-    let symbol: String?
+    var symbol: String? { didSet { needsDisplay = true } }
     let iconSize: CGFloat
     let radius: CGFloat
 
