@@ -539,7 +539,7 @@ final class VideoEditorWindowController: NSWindowController, NSWindowDelegate {
         finished = true
         try? FileManager.default.removeItem(at: url)
         window?.close()
-        NSSound(named: "Pop")?.play()
+        Sounds.pop()
         let gen = AVAssetImageGenerator(asset: AVURLAsset(url: dest))
         gen.appliesPreferredTrackTransform = true
         let thumb = (try? gen.copyCGImage(at: .zero, actualTime: nil)).map { NSImage(cgImage: $0, size: .zero) }

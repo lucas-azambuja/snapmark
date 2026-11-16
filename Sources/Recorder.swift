@@ -144,8 +144,9 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
             let w = Int(size.width * scale) / 2 * 2, h = Int(size.height * scale) / 2 * 2
             cfg.width = w
             cfg.height = h
-            cfg.showsCursor = true
-            cfg.minimumFrameInterval = CMTime(value: 1, timescale: 60)
+            let fps = Preferences.recordFPS
+            cfg.showsCursor = Preferences.recordCursor
+            cfg.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(fps))
             cfg.queueDepth = 6
             cfg.pixelFormat = kCVPixelFormatType_32BGRA
             cfg.capturesAudio = sound
@@ -165,8 +166,8 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
                     // (blurry) and only sharpens after a second or two, which is very visible on screen content.
                     AVVideoCompressionPropertiesKey: [
                         AVVideoQualityKey: 0.8,
-                        AVVideoExpectedSourceFrameRateKey: 60,
-                        AVVideoMaxKeyFrameIntervalKey: 60,
+                        AVVideoExpectedSourceFrameRateKey: fps,
+                        AVVideoMaxKeyFrameIntervalKey: fps,
                         AVVideoMaxKeyFrameIntervalDurationKey: 1,
                         AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
                         AVVideoAllowFrameReorderingKey: false,

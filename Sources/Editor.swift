@@ -341,7 +341,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         pb.declareTypes([.png, .tiff], owner: nil)
         pb.setData(png, forType: .png)
         if let tiff = rep.tiffRepresentation { pb.setData(tiff, forType: .tiff) }
-        NSSound(named: "Pop")?.play()
+        Sounds.pop()
         finished = true
         window?.close()
         if let url = QuickAccess.temporaryFile(png: png) {
@@ -364,12 +364,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let fmt = DateFormatter()
         fmt.locale = Locale(identifier: "en_US_POSIX")
         fmt.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
-        panel.nameFieldStringValue = "Screenshot \(fmt.string(from: Date())).png"
-        if let last = UserDefaults.standard.string(forKey: "lastSaveDir") {
-            panel.directoryURL = URL(fileURLWithPath: last)
-        } else {
-            panel.directoryURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
-        }
+        panel.nameFieldStringValue = "Screenshot \(fmt.string(from: Date())).\(Preferences.imageFormat.fileExtension)"
+        panel.directoryURL = Preferences.saveFolder
         panel.beginSheetModal(for: win) { [weak self] resp in
             guard resp == .OK, let url = panel.url else { return }
             let isJPEG = ["jpg", "jpeg"].contains(url.pathExtension.lowercased())

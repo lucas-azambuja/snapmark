@@ -26,6 +26,23 @@ Press **⌘⇧5**, drag over what you want, point it out with arrows, shapes, te
 
 > **Status: alpha.** It works for daily use but still has rough edges. [Bug reports](https://github.com/lucas-azambuja/snapmark/issues) are welcome.
 
+## At a glance
+
+- 📸 **Area, window and full-screen capture** with one shortcut (⌘⇧5 by default, configurable)
+- 🎯 **Adjustable selection** with handles, a **loupe**, and **snap to edges** of what's on screen
+- 🔁 **Remembers the last area** for repeated captures
+- ⏱️ **Screenshot timer** (3, 5 or 10 s) and **copy or save** in one click
+- 🔤 **Copy text (OCR)** from any part of the screen, on-device
+- ✏️ **Annotation editor**: arrows, lines, shapes, pen, highlighter, blur, text and numbered counters, all editable afterwards
+- 🎥 **Screen recording** to MP4 with system audio and microphone, live audio meters and a dimmed background
+- ✂️ **Review recordings**: filmstrip trimmer, per-track waveforms, volume and mute, then *Trim and Save*
+- 🪟 **Floating thumbnail** to drag captures and recordings into any app
+- ⚙️ **Settings** for the shortcut, save folder, image format, recording frame rate and more
+- 🔔 **Update check** against GitHub releases, right from the menu bar
+- 🪶 Native, tiny, no dependencies, no account, no network except the update check
+
+See [Features](#features) for the details.
+
 ## Features
 
 ### Capture
@@ -79,7 +96,9 @@ Press **⌘⇧5**, drag over what you want, point it out with arrows, shapes, te
 ### And also
 - A guided screen for the Screen Recording permission.
 - A translucent dark editor with short, snappy animations.
-- *About Snapmark*, version and build number in the menu, and optional launch at login.
+- **Settings** (menu → *Settings…* or ⌘,): the capture shortcut, launch at login, sounds, update checks, remembering the last area, snapping, the loupe, window shadows, the save folder and image format (PNG or JPEG), and the recording frame rate and cursor.
+- **Remembers the last area**: the next capture starts with the previous selection already in place (unless it was a whole screen), ready to capture with Return or adjust.
+- *About Snapmark*, version and build number in the menu, and a daily check for new releases (**Check for Updates…**).
 
 ## Requirements
 
@@ -88,17 +107,28 @@ Press **⌘⇧5**, drag over what you want, point it out with arrows, shapes, te
 
 ## Installation
 
-1. Download the latest `.zip` from [Releases](https://github.com/lucas-azambuja/snapmark/releases).
-2. Unzip it and move `Snapmark.app` to `/Applications`.
-3. Open Snapmark. Its icon shows up in the menu bar.
+1. Go to [**Releases**](https://github.com/lucas-azambuja/snapmark/releases) and download `Snapmark-<version>.zip` from the newest release (under *Assets*).
+2. Open the downloaded `.zip` (Finder unzips it) and drag **Snapmark.app** into your **Applications** folder.
+3. Open Snapmark from Applications. Its icon shows up in the menu bar; there's no Dock icon.
 
-The app isn't signed with an Apple Developer certificate, so macOS blocks the first launch. To allow it, either:
+**First launch.** Snapmark isn't signed with an Apple Developer certificate yet, so macOS blocks it the first time with a message saying it can't verify the app. To allow it, either:
 
-- Try to open the app once, go to **System Settings → Privacy & Security**, scroll to the message about Snapmark, and click **Open Anyway**.
-- Or run in Terminal:
+- Open **System Settings → Privacy & Security**, scroll down to the message about Snapmark, and click **Open Anyway** (then confirm).
+- Or run this once in Terminal:
   ```bash
   xattr -d com.apple.quarantine /Applications/Snapmark.app
   ```
+
+**Checking the download (optional).** Each release also has a `.sha256` file. In Terminal, in the folder with both files:
+```bash
+shasum -a 256 -c Snapmark-*.zip.sha256
+```
+
+### Updating
+
+Snapmark checks GitHub for new releases once a day (you can turn this off in Settings). When there's one, the menu bar icon gets a small dot and the menu shows **Update Available**; click it to open the release. You can also use **Check for Updates…** in the menu.
+
+To update, quit Snapmark, download the new `.zip`, and replace the app in Applications. Your settings are kept. Because the new build has a different signature, macOS asks for the Screen Recording permission again: if Snapmark already looks enabled there, remove it with **–** and allow it again.
 
 ## First run
 
@@ -108,7 +138,7 @@ macOS uses ⌘⇧5 for its own screenshot tool. To let Snapmark have it, turn of
 
 **System Settings → Keyboard → Keyboard Shortcuts… → Screenshots →** uncheck **"Screenshot and recording options"**.
 
-If the shortcut is still taken, the Snapmark menu shows *"⌘⇧5 shortcut unavailable"*. You can still capture from the menu.
+If the shortcut is still taken, the Snapmark menu shows it as *unavailable*. You can still capture from the menu, or pick another shortcut in Settings.
 
 ### 2. Allow Screen Recording
 
@@ -152,7 +182,6 @@ The script builds the app, creates the `.zip` and its checksum, creates and push
 
 ## Known limitations
 
-- The shortcut is fixed to ⌘⇧5.
 - No GIF export yet.
 
 ## Contributing

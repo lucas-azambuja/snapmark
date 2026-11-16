@@ -202,7 +202,7 @@ final class OverlayView: NSView {
                 if controller.mode == .area { drawEdgeHandles(around: r) }
                 if isPrimaryForHighlight { drawLabel(controller.lockedLabel, above: r) }
             }
-            if controller.adjusting, let c = localCursor { drawLoupe(at: c) }
+            if controller.adjusting, Preferences.showLoupe, let c = localCursor { drawLoupe(at: c) }
             if let bar = controller.toolbar, bar.frame.intersects(screenFrame) {
                 CaptureToolbar.draw(bar, hovered: controller.hoveredAction,
                                     levels: (controller.levels.soundLevel, controller.levels.micLevel),
@@ -216,7 +216,7 @@ final class OverlayView: NSView {
             if controller.dragging, let full = controller.selection, let r = clear {
                 drawLabel("\(Int(full.width)) × \(Int(full.height))", near: r)
             }
-            if let c = localCursor {
+            if Preferences.showLoupe, let c = localCursor {
                 if clear == nil { drawCrosshair(at: c) }
                 drawLoupe(at: c)
             }
@@ -658,6 +658,25 @@ final class SelectionController {
         ScreenSnapshot.capture { images in
             for (id, img) in images { viewsByDisplay[id]?.snapshot = img }
         }
+        restoreLastArea()
+    }
+
+    /// Starts with the previous selection (locked, with its handles), unless it was a whole screen
+    /// or the screen it was on is gone.
+    private func restoreLastArea() {
+        guard Preferences.rememberArea, let r = Preferences.lastArea,
+              let screen = NSScreen.screens.first(where: { $0.frame.contains(r) })?.frame else { return }
+        let fullScreen = abs(r.width - screen.width) < 2 && abs(r.height - screen.height) < 2
+        guard !fullScreen else { return }
+        startScreen = screen
+        selection = r
+        lock()
+    }
+
+    /// Remembers the area for next time (only area captures; windows and screens aren't kept).
+    private func rememberArea(_ t: CaptureTarget) {
+        guard Preferences.rememberArea else { return }
+        if case .area(let r) = t { Preferences.lastArea = r }
     }
 
     // MARK: Modes
@@ -983,6 +1002,7 @@ final class SelectionController {
 
     private func perform(_ a: ToolbarAction) {
         guard let t = target else { return }
+        if [.record, .copy, .copyText, .save, .capture].contains(a) { rememberArea(t) }
         switch a {
         case .close: finish(.cancelled)
         case .timer: CaptureOptions.nextDelay(); redraw()

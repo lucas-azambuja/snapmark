@@ -39,6 +39,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setupMainMenu()
         setupStatusItem()
         registerHotKey()
+        UpdateChecker.shared.onChange = { [weak self] in self?.updatesChanged() }
+        UpdateChecker.shared.schedule()
 
         let args = CommandLine.arguments
         // Só para desenvolvimento: --snapshot <imagem> <saida.png> desenha o editor num PNG e sai.
@@ -74,6 +76,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         // Development only: checks edge snapping on a synthetic screen (a card at x 100–300, y 80–220 points).
+        if args.contains("--version-test") {
+            let pairs = [("0.1.0-alpha.3", "0.1.0-alpha.4"), ("0.1.0-alpha.9", "0.1.0-alpha.10"), ("0.1.0-alpha.4", "0.1.0"),
+                         ("0.1.0", "0.1.1"), ("v0.1.0", "0.1.0"), ("0.1.0-alpha.2", "0.1.0-beta.1")]
+            for (a, b) in pairs {
+                let va = Version(a)!, vb = Version(b)!
+                print(a, va < vb ? "<" : va == vb ? "=" : ">", b)
+            }
+            UpdateChecker.shared.check { u, e in
+                print("current:", AppInfo.version, "· newest newer release:", u.map { "\($0.version)" } ?? "none", e.map { "error: \($0)" } ?? "")
+                NSApp.terminate(nil)
+            }
+            return
+        }
         if args.contains("--snap-test") {
             let w = 800, h = 600   // 400 × 300 points at 2×
             let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
@@ -125,6 +140,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             NSApp.terminate(nil)
             return
         }
+        if let i = args.firstIndex(of: "--snapshot-settings"), i + 1 < args.count {
+            let w = SettingsWindowController()
+            if let view = w.window?.contentView {
+                view.layoutSubtreeIfNeeded()
+                if let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                    view.cacheDisplay(in: view.bounds, to: rep)
+                    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[i + 1]))
+                }
+            }
+            NSApp.terminate(nil)
+            return
+        }
         if let i = args.firstIndex(of: "--snapshot-permission"), i + 1 < args.count {
             let w = PermissionWindowController()
             if let view = w.window?.contentView {
@@ -147,6 +174,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let main = NSMenu()
         let appItem = NSMenuItem(); main.addItem(appItem)
         let appMenu = NSMenu()
+        let prefs = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
+        prefs.target = self
+        appMenu.addItem(prefs)
         appMenu.addItem(withTitle: "Quit Snapmark", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         let editItem = NSMenuItem(); main.addItem(editItem)
@@ -161,24 +191,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        let img = Bundle.main.image(forResource: "MenuBarIcon")
-            ?? NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "Snapmark")
-        img?.isTemplate = true
-        img?.accessibilityDescription = "Snapmark"
-        statusItem.button?.image = img
+        updateStatusIcon()
         let menu = NSMenu()
         menu.delegate = self
-        let cap = NSMenuItem(title: "Capture Area", action: #selector(capture), keyEquivalent: "5")
-        cap.keyEquivalentModifierMask = [.command, .shift]
+        // Shown only when a newer release exists.
+        let upd = NSMenuItem(title: "", action: #selector(openUpdatePage), keyEquivalent: "")
+        upd.target = self
+        upd.isHidden = true
+        menu.addItem(upd)
+        updateItem = upd
+        let updSeparator = NSMenuItem.separator()
+        updSeparator.isHidden = true
+        menu.addItem(updSeparator)
+        updateSeparator = updSeparator
+        let cap = NSMenuItem(title: "Capture Area", action: #selector(capture), keyEquivalent: "")
+        captureItem = cap
+        updateCaptureItem()
         cap.target = self
         menu.addItem(cap)
         let open = NSMenuItem(title: "Open Image in Editor…", action: #selector(openImage), keyEquivalent: "")
         open.target = self
         menu.addItem(open)
         menu.addItem(.separator())
+        let settings = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
+        settings.target = self
+        menu.addItem(settings)
         let about = NSMenuItem(title: "About Snapmark", action: #selector(showAbout), keyEquivalent: "")
         about.target = self
         menu.addItem(about)
+        let check = NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
+        check.target = self
+        menu.addItem(check)
         let version = NSMenuItem(title: AppInfo.summary, action: nil, keyEquivalent: "")
         version.isEnabled = false
         menu.addItem(version)
@@ -194,18 +237,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
-        if let cap = menu.items.first {
-            cap.title = hotKeyOK ? "Capture Area" : "Capture Area (⌘⇧5 shortcut unavailable)"
-        }
+        updateCaptureItem()
     }
+
+    private var captureItem: NSMenuItem?
+    private var settingsWindow: SettingsWindowController?
 
     private func registerHotKey() {
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         InstallEventHandler(GetApplicationEventTarget(), hotKeyHandler, 1, &spec, nil, nil)
+        applyShortcut(Preferences.shortcut)
+    }
+
+    /// (Re)registers the global capture shortcut.
+    func applyShortcut(_ s: Shortcut) {
+        if let hotKeyRef { UnregisterEventHotKey(hotKeyRef) }
+        hotKeyRef = nil
         let id = EventHotKeyID(signature: OSType(0x534E_4150), id: 1) // 'SNAP'
-        let status = RegisterEventHotKey(UInt32(kVK_ANSI_5), UInt32(cmdKey | shiftKey), id,
-                                         GetApplicationEventTarget(), 0, &hotKeyRef)
-        hotKeyOK = (status == noErr)
+        hotKeyOK = RegisterEventHotKey(s.keyCode, s.carbonModifiers, id, GetApplicationEventTarget(), 0, &hotKeyRef) == noErr
+        updateCaptureItem()
+    }
+
+    /// While the shortcut recorder listens, the current shortcut must not trigger a capture.
+    private func suspendShortcut(_ suspended: Bool) {
+        if suspended {
+            if let hotKeyRef { UnregisterEventHotKey(hotKeyRef) }
+            hotKeyRef = nil
+        } else {
+            applyShortcut(Preferences.shortcut)
+        }
+    }
+
+    private func updateCaptureItem() {
+        guard let cap = captureItem else { return }
+        let s = Preferences.shortcut
+        cap.keyEquivalent = s.menuKeyEquivalent
+        cap.keyEquivalentModifierMask = s.modifiers
+        cap.title = hotKeyOK ? "Capture Area" : "Capture Area (\(s.display) unavailable)"
+    }
+
+    @objc func showSettings() {
+        if settingsWindow == nil {
+            let w = SettingsWindowController()
+            w.onShortcutChange = { [weak self] s in self?.applyShortcut(s) }
+            w.onShortcutRecording = { [weak self] r in self?.suspendShortcut(r) }
+            settingsWindow = w
+        }
+        settingsWindow?.present()
     }
 
     @objc func capture() {
@@ -267,7 +345,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         switch target {
         case .window(let id, _):
             // `-l` captures the window itself, so nothing on top matters; `-o` leaves out the shadow.
-            runScreencapture(["-l", "\(id)", "-o"], done: finish)
+            runScreencapture(["-l", "\(id)"] + (Preferences.windowShadow ? [] : ["-o"]), done: finish)
         case .area(let r):
             runScreencapture(["-R", Self.region(r)], done: finish)
         case .screen(let r):
@@ -294,7 +372,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             pb.declareTypes([.png, .tiff], owner: nil)
             pb.setData(data, forType: .png)
             if let tiff = img.tiffRepresentation { pb.setData(tiff, forType: .tiff) }
-            NSSound(named: "Pop")?.play()
+            Sounds.pop()
             let file = QuickAccess.temporaryFile(png: data) ?? url
             try? FileManager.default.removeItem(at: url)
             QuickAccess.shared.show(image: img, fileURL: file, caption: "Copied to clipboard") { [weak self] u in
@@ -316,7 +394,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 let pb = NSPasteboard.general
                 pb.clearContents()
                 pb.setString(text, forType: .string)
-                NSSound(named: "Pop")?.play()
+                Sounds.pop()
                 let words = text.split { $0.isWhitespace || $0.isNewline }.count
                 QuickAccess.shared.show(image: img, fileURL: QuickAccess.temporaryFile(png: data) ?? url,
                                         caption: "Text copied · \(words) word\(words == 1 ? "" : "s")") { [weak self] u in
@@ -324,10 +402,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
         case .save:
-            let dest = Self.saveFolder().appendingPathComponent("Screenshot \(Self.timestamp()).png")
+            let format = Preferences.imageFormat
+            let dest = Self.saveFolder().appendingPathComponent("Screenshot \(Self.timestamp()).\(format.fileExtension)")
             do {
-                try FileManager.default.moveItem(at: url, to: dest)
-                NSSound(named: "Pop")?.play()
+                if format == .jpeg, let data = try? Data(contentsOf: url), let rep = NSBitmapImageRep(data: data),
+                   let jpg = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.9]) {
+                    try jpg.write(to: dest)
+                    try? FileManager.default.removeItem(at: url)
+                } else {
+                    try FileManager.default.moveItem(at: url, to: dest)
+                }
+                Sounds.pop()
                 guard let img = NSImage(contentsOf: dest) else { return }
                 QuickAccess.shared.show(image: img, fileURL: dest, caption: "Saved") { [weak self] u in
                     self?.openEditor(url: u, deleteAfter: false)
@@ -339,11 +424,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    static func saveFolder() -> URL {
-        if let last = UserDefaults.standard.string(forKey: "lastSaveDir") { return URL(fileURLWithPath: last) }
-        return FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
-            ?? URL(fileURLWithPath: NSHomeDirectory())
-    }
+    static func saveFolder() -> URL { Preferences.saveFolder }
 
     static func timestamp() -> String {
         let fmt = DateFormatter()
@@ -433,10 +514,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func restoreStatusItem() {
         statusItem.button?.action = nil
         statusItem.menu = statusMenu
-        let img = Bundle.main.image(forResource: "MenuBarIcon")
-            ?? NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "Snapmark")
-        img?.isTemplate = true
+        updateStatusIcon()
+    }
+
+    // MARK: Updates
+
+    private var updateItem: NSMenuItem?
+    private var updateSeparator: NSMenuItem?
+
+    /// The menu bar icon, with a dot when an update is available.
+    private func updateStatusIcon() {
+        guard !ScreenRecorder.isRecording else { return }
+        let base = Bundle.main.image(forResource: "MenuBarIcon")
+            ?? NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "Snapmark")!
+        base.isTemplate = true
+        let img = UpdateChecker.shared.available == nil ? base : base.withBadge()
+        img.accessibilityDescription = UpdateChecker.shared.available == nil ? "Snapmark" : "Snapmark — update available"
         statusItem.button?.image = img
+    }
+
+    private func updatesChanged() {
+        let u = UpdateChecker.shared.available
+        updateItem?.isHidden = u == nil
+        updateSeparator?.isHidden = u == nil
+        if let u {
+            updateItem?.attributedTitle = NSAttributedString(string: "Update Available: \(u.version)…", attributes: [
+                .font: NSFont.menuFont(ofSize: 0), .foregroundColor: Theme.accent,
+            ])
+            updateItem?.image = NSImage(systemSymbolName: "arrow.down.circle.fill", accessibilityDescription: nil)
+        }
+        updateStatusIcon()
+    }
+
+    @objc private func openUpdatePage() {
+        NSWorkspace.shared.open(UpdateChecker.shared.available?.page ?? UpdateChecker.releasesPage)
+    }
+
+    @objc func checkForUpdates() {
+        UpdateChecker.shared.check { update, error in
+            NSApp.activate(ignoringOtherApps: true)
+            let alert = NSAlert()
+            if let error {
+                alert.messageText = "Couldn't check for updates"
+                alert.informativeText = error.localizedDescription
+                alert.runModal()
+            } else if let update {
+                alert.messageText = "Snapmark \(update.version) is available"
+                alert.informativeText = "You have \(AppInfo.version). Download the new version from the releases page and replace the app in Applications."
+                alert.addButton(withTitle: "Download")
+                alert.addButton(withTitle: "Later")
+                if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(update.page) }
+            } else {
+                alert.messageText = "You're up to date"
+                alert.informativeText = "Snapmark \(AppInfo.version) is the newest version."
+                alert.runModal()
+            }
+        }
     }
 
     /// `screencapture -R` takes x,y,w,h in points with the origin at the top-left of the main display.
