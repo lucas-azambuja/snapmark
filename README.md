@@ -24,7 +24,7 @@
 
 Press **⌘⇧5**, drag over what you want, point it out with arrows, shapes, text or blur, and copy it. Snapmark is a single native app with no dependencies: it lives in the menu bar, stays out of the Dock, and gets out of your way.
 
-> **Status: alpha.** It works for daily use but still has rough edges. [Bug reports](https://github.com/lucas-azambuja/snapmark/issues) are welcome.
+> **Status: beta.** Everything planned for 0.1.0 is in; the focus now is bugs and polish. [Bug reports](https://github.com/lucas-azambuja/snapmark/issues) are welcome.
 
 ## At a glance
 
