@@ -498,8 +498,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         recordingControls?.orderOut(nil)
         recordingDim = []
         recordingControls = nil
-        restoreStatusItem()
         let names = r.audioTrackNames
+        // `stop` ends the recording state right away, so restore the icon after it
+        // (restoring first left the red recording icon in the menu bar).
         r.stop { [weak self] url in
             guard let self, let url else { return }
             if discard { try? FileManager.default.removeItem(at: url); return }
@@ -509,6 +510,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.videoEditors.append(ed)
             ed.present()
         }
+        restoreStatusItem()
     }
 
     private func restoreStatusItem() {
